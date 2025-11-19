@@ -10,25 +10,25 @@ from datetime import datetime
 import re
 import os
 
+# Importar WebDriver Manager (Necesario para servidores de hosting)
+from webdriver_manager.chrome import ChromeDriverManager
+
 app = Flask(__name__)
 
-# --- CONFIGURACIÓN DE CHROME DRIVER (Ruta Relativa) ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CHROMEDRIVER_FILENAME = "chromedriver.exe" 
-CHROMEDRIVER_PATH = os.path.join(BASE_DIR, CHROMEDRIVER_FILENAME)
-
+# --- CONFIGURACIÓN DE CHROME DRIVER ---
+# Eliminamos la dependencia de CHROMEDRIVER_PATH y .exe local.
 
 def obtener_horas(modelo, fecha_inicio, fecha_fin):
     
-    if not os.path.exists(CHROMEDRIVER_PATH):
-        return None, f"Error de configuración: ChromeDriver no encontrado en la ruta: {CHROMEDRIVER_PATH}. Asegúrate de que está en el mismo directorio que app.py."
-    
+    # La validación de CHROMEDRIVER_PATH ya no es necesaria, 
+    # ya que webdriver-manager lo maneja.
+
     url = f"https://www.cbhours.com/user/{modelo}.html"
 
     # Configuración de Selenium
     chrome_options = Options()
     
-    # --- MODO OCULTO (HEADLESS=NEW) ACTIVADO ---
+    # --- MODO OCULTO (HEADLESS=NEW) ACTIVADO para máxima compatibilidad ---
     chrome_options.add_argument("--headless=new") 
     
     # --- SIMULACIÓN DE NAVEGADOR COMPLETO ---
@@ -43,23 +43,28 @@ def obtener_horas(modelo, fecha_inicio, fecha_fin):
     
     driver = None 
     try:
-        service = Service(CHROMEDRIVER_PATH)
+        # Inicialización del driver usando webdriver-manager para el servidor
+        service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.get(url)
         
         # Mantenemos 30 segundos de espera
         wait = WebDriverWait(driver, 30) 
 
-        # --- ESPERA CRÍTICA SIMPLIFICADA (SOLO PRESENCIA) ---
+        # --- ESPERA CRÍTICA: Asegurar la Carga y Presencia del Contenedor ---
         CONTAINER_SELECTOR = "div.activity_logs_container"
         try:
-            # Esperar que el contenedor principal esté presente (después de la carga)
+            # 1. Esperar que el estado de la página sea 'complete'
+            wait.until(
+                lambda driver: driver.execute_script("return document.readyState") == "complete"
+            )
+            
+            # 2. Esperar que el contenedor principal esté presente
             wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, CONTAINER_SELECTOR)))
             
         except TimeoutException:
-             # Si esto falla después de 30s, la página no cargó
              driver.quit()
-             return None, "Error de carga: No se encontró el contenedor principal después de 30 segundos. El sitio web está bloqueando el modo invisible o el contenido se carga muy lentamente."
+             return None, "Error de carga: La página no cargó completamente o no se encontró el contenedor principal después de 30 segundos. Verifique la URL."
 
 
         # --- PASO CLAVE: ACTIVAR LA PESTAÑA FORZANDO LA VISIBILIDAD CON JAVASCRIPT ---
@@ -67,7 +72,7 @@ def obtener_horas(modelo, fecha_inicio, fecha_fin):
             # 1. Encontrar el contenedor de la actividad
             activity_container = driver.find_element(By.CSS_SELECTOR, CONTAINER_SELECTOR)
             
-            # 2. Inyectar JavaScript para añadir la clase 'visible'
+            # 2. Inyectar JavaScript para añadir la clase 'visible' (solución al fallo del click en headless)
             driver.execute_script(
                 "arguments[0].classList.add('visible');", activity_container
             )
@@ -79,7 +84,7 @@ def obtener_horas(modelo, fecha_inicio, fecha_fin):
             
         except TimeoutException:
             driver.quit()
-            return None, "Fallo de renderizado: Se forzó la visibilidad, pero los registros de actividad no aparecieron. El sitio web pudo haber cambiado su carga asíncrona."
+            return None, "Fallo de renderizado: Se forzó la visibilidad, pero los registros de actividad no aparecieron."
         except Exception as e:
             driver.quit()
             return None, f"Fallo al forzar la pestaña: Error al inyectar JavaScript o al buscar el contenedor. ({e})"
@@ -87,7 +92,7 @@ def obtener_horas(modelo, fecha_inicio, fecha_fin):
         # 2. Obtener TODOS los elementos que coincidan con el selector
         registros_html = driver.find_elements(By.CSS_SELECTOR, "div.activity_logs_content p")
         
-        # --- BLOQUE DE DEPURACIÓN CRÍTICO ---
+        # --- DEBUG (Se mantendrán impresos en los logs del servidor) ---
         print("-" * 50)
         print(f"DEBUG CRÍTICO: Registros encontrados (Count): {len(registros_html)}")
         if len(registros_html) > 0:
@@ -172,6 +177,7 @@ def index():
                 if ini > fin:
                     error = "La fecha de inicio no puede ser posterior a la fecha de fin."
                 else:
+                    # Llama a la función principal
                     resultado, error = obtener_horas(modelo, fecha_inicio, fecha_fin)
             except ValueError:
                 error = "El formato de fecha no es válido (debe ser YYYY-MM-DD)."
@@ -183,4 +189,6 @@ def index():
 
 
 if __name__ == "__main__":
+    # Importante: Desactiva el modo debug (debug=False) para producción, 
+    # pero lo dejamos en True si solo lo vas a correr localmente por ahora.
     app.run(debug=True)
