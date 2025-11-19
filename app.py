@@ -8,46 +8,45 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from datetime import datetime
 import re
-import os
-
-# Importar WebDriver Manager (Necesario para servidores de hosting)
-from webdriver_manager.chrome import ChromeDriverManager
+import os # Necesario para leer las variables de entorno de Render
 
 app = Flask(__name__)
 
-# --- CONFIGURACIÓN DE CHROME DRIVER ---
-# Eliminamos la dependencia de CHROMEDRIVER_PATH y .exe local.
-
 def obtener_horas(modelo, fecha_inicio, fecha_fin):
     
-    # La validación de CHROMEDRIVER_PATH ya no es necesaria, 
-    # ya que webdriver-manager lo maneja.
+    # --- RUTAS FIJAS DE CHROME/CHROMIUM EN RENDER ---
+    # Esto usa las rutas predeterminadas de Render/Heroku Buildpack
+    CHROMIUM_PATH = os.environ.get('CHROMIUM_PATH') or '/usr/bin/chromium-browser'
+    CHROME_DRIVER_PATH = os.environ.get('CHROME_DRIVER_PATH') or '/usr/bin/chromedriver'
 
     url = f"https://www.cbhours.com/user/{modelo}.html"
 
     # Configuración de Selenium
     chrome_options = Options()
     
-    # --- MODO OCULTO (HEADLESS=NEW) ACTIVADO para máxima compatibilidad ---
+    # CRÍTICO: Especificar la ubicación del binario de Chrome
+    chrome_options.binary_location = CHROMIUM_PATH 
+    
+    # --- MODO OCULTO (HEADLESS=NEW) ACTIVADO ---
     chrome_options.add_argument("--headless=new") 
     
-    # --- SIMULACIÓN DE NAVEGADOR COMPLETO ---
+    # --- OPCIONES ESENCIALES PARA SERVIDORES ---
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     chrome_options.add_argument("--window-size=1920,1080") 
-    # ------------------------------------------
-
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-dev-shm-usage") # Evita fallos de memoria
     chrome_options.add_argument("--disable-notifications")
     
     driver = None 
     try:
-        # Inicialización del driver usando webdriver-manager para el servidor
-        service = Service(ChromeDriverManager().install())
+        # Inicialización del driver usando la RUTA FIJA
+        service = Service(CHROME_DRIVER_PATH)
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.get(url)
         
+        # ... RESTO DEL CÓDIGO DE SCRAPING (NO SE MODIFICA) ...
+
         # Mantenemos 30 segundos de espera
         wait = WebDriverWait(driver, 30) 
 
@@ -63,8 +62,8 @@ def obtener_horas(modelo, fecha_inicio, fecha_fin):
             wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, CONTAINER_SELECTOR)))
             
         except TimeoutException:
-             driver.quit()
-             return None, "Error de carga: La página no cargó completamente o no se encontró el contenedor principal después de 30 segundos. Verifique la URL."
+            driver.quit()
+            return None, "Error de carga: La página no cargó completamente o no se encontró el contenedor principal después de 30 segundos. Verifique la URL."
 
 
         # --- PASO CLAVE: ACTIVAR LA PESTAÑA FORZANDO LA VISIBILIDAD CON JAVASCRIPT ---
@@ -72,7 +71,7 @@ def obtener_horas(modelo, fecha_inicio, fecha_fin):
             # 1. Encontrar el contenedor de la actividad
             activity_container = driver.find_element(By.CSS_SELECTOR, CONTAINER_SELECTOR)
             
-            # 2. Inyectar JavaScript para añadir la clase 'visible' (solución al fallo del click en headless)
+            # 2. Inyectar JavaScript para añadir la clase 'visible' 
             driver.execute_script(
                 "arguments[0].classList.add('visible');", activity_container
             )
@@ -168,7 +167,7 @@ def index():
         fecha_fin = request.form.get("fecha_fin")
         
         if not (modelo and fecha_inicio and fecha_fin):
-             error = "Por favor, completa todos los campos del formulario."
+            error = "Por favor, completa todos los campos del formulario."
         else:
             try:
                 ini = datetime.strptime(fecha_inicio, "%Y-%m-%d")
@@ -189,6 +188,4 @@ def index():
 
 
 if __name__ == "__main__":
-    # Importante: Desactiva el modo debug (debug=False) para producción, 
-    # pero lo dejamos en True si solo lo vas a correr localmente por ahora.
     app.run(debug=True)
