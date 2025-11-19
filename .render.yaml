@@ -1,0 +1,18 @@
+# .render.yaml
+# Define la versión de Python
+env: python
+
+# Buildpacks: Este es el paso CRÍTICO
+# El segundo buildpack fuerza la instalación de Chrome/Chromium
+buildpacks:
+  - https://github.com/heroku/heroku-buildpack-python
+  - https://github.com/heroku/heroku-buildpack-google-chrome
+  
+# Configura el servicio web
+services:
+  - type: web
+    name: horascbhours
+    env: python
+    # Usamos el comando simple, ya que Chrome se instala con el buildpack
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m gunicorn app:app
