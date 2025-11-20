@@ -1,32 +1,28 @@
-# Dockerfile (Corregido para instalación APT estable)
+# Dockerfile (VERSION ULTRA-ROBUSTA)
 
-# Cambiar a una imagen base de Debian más completa y estable
+# Usamos la imagen base de Python 3.10
 FROM python:3.10
 
 # Establece el directorio de trabajo
 WORKDIR /app
 
-# Instala Chromium y sus dependencias (Solución al exit code 10)
-# Se añaden dependencias comunes de navegadores como libnss3, etc.
+# Instala las dependencias necesarias de Chrome/Chromium y su driver
+# El uso de apt-get update y el & separa los comandos lo hace más fiable
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     chromium \
     chromium-driver \
     libnss3 \
     libgconf-2-4 \
-    fonts-liberation \
-    libappindicator3-1 \
-    xdg-utils \
-    wget \
-    gnupg \
     --fix-missing \
     && rm -rf /var/lib/apt/lists/*
 
-# Asegura permisos de ejecución
+# CRÍTICO: Asegura permisos de ejecución
+# (Aunque Chromium ya debería tenerlos, esto elimina dudas)
 RUN chmod +x /usr/bin/chromedriver
 RUN chmod +x /usr/bin/chromium
 
-# Configura las variables de entorno
+# Configura variables de entorno para las rutas (ya que usamos la instalación estándar)
 ENV CHROME_DRIVER_PATH /usr/bin/chromedriver
 ENV CHROMIUM_PATH /usr/bin/chromium
 
@@ -37,6 +33,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia el resto del código
 COPY . .
 
-# Expone el puerto y comando de inicio
+# Comando de inicio
 EXPOSE 8000
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]
