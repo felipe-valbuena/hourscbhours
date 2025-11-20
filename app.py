@@ -1,4 +1,4 @@
-ffrom flask import Flask, render_template, request
+from flask import Flask, render_template, request
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -14,8 +14,9 @@ app = Flask(__name__)
 
 def obtener_horas(modelo, fecha_inicio, fecha_fin):
     
-    # --- RUTAS FIJAS PARA DOCKER (Instaladas por el Dockerfile) ---
-    CHROMIUM_PATH = '/usr/bin/chromium' 
+    # --- RUTAS FIJAS PARA IMAGEN SELENIUM ---
+    # La imagen 'selenium/standalone-chrome' tiene el binario de Chrome y el driver en estas ubicaciones.
+    CHROMIUM_PATH = '/usr/bin/google-chrome' 
     CHROME_DRIVER_PATH = '/usr/bin/chromedriver'
 
     url = f"https://www.cbhours.com/user/{modelo}.html"
