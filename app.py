@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+ffrom flask import Flask, render_template, request
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -14,8 +14,7 @@ app = Flask(__name__)
 
 def obtener_horas(modelo, fecha_inicio, fecha_fin):
     
-    # --- RUTAS FIJAS PARA DOCKER (INSTALADAS POR EL DOCKERFILE) ---
-    # Usamos las rutas exactas que el comando apt-get del Dockerfile instala.
+    # --- RUTAS FIJAS PARA DOCKER (Instaladas por el Dockerfile) ---
     CHROMIUM_PATH = '/usr/bin/chromium' 
     CHROME_DRIVER_PATH = '/usr/bin/chromedriver'
 
@@ -27,16 +26,16 @@ def obtener_horas(modelo, fecha_inicio, fecha_fin):
     # CRÍTICO: Especificar la ubicación del binario de Chrome
     chrome_options.binary_location = CHROMIUM_PATH 
     
-    # --- MODO OCULTO (HEADLESS=NEW) ACTIVADO ---
+    # --- OPCIONES ESENCIALES PARA DOCKER/LINUX ---
     chrome_options.add_argument("--headless=new") 
+    chrome_options.add_argument("--no-sandbox") # CRÍTICO para ejecución en Docker/Root user
+    chrome_options.add_argument("--disable-dev-shm-usage") # Evita problemas de memoria
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-notifications")
     
-    # --- OPCIONES ESENCIALES PARA SERVIDORES ---
+    # Otros argumentos de simulación de navegador
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     chrome_options.add_argument("--window-size=1920,1080") 
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage") 
-    chrome_options.add_argument("--disable-notifications")
     
     driver = None 
     try:
@@ -45,8 +44,6 @@ def obtener_horas(modelo, fecha_inicio, fecha_fin):
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.get(url)
         
-        # ... RESTO DEL CÓDIGO DE SCRAPING (NO SE MODIFICA) ...
-
         # Mantenemos 30 segundos de espera
         wait = WebDriverWait(driver, 30) 
 
