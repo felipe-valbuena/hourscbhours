@@ -15,7 +15,7 @@ app = Flask(__name__)
 def obtener_horas(modelo, fecha_inicio, fecha_fin):
     
     # --- RUTAS FIJAS PARA IMAGEN SELENIUM ---
-    # La imagen 'selenium/standalone-chrome' tiene el binario de Chrome y el driver en estas ubicaciones.
+    # La imagen 'selenium/standalone-chrome' usa estas rutas.
     CHROMIUM_PATH = '/usr/bin/google-chrome' 
     CHROME_DRIVER_PATH = '/usr/bin/chromedriver'
 
@@ -30,7 +30,7 @@ def obtener_horas(modelo, fecha_inicio, fecha_fin):
     # --- OPCIONES ESENCIALES PARA DOCKER/LINUX ---
     chrome_options.add_argument("--headless=new") 
     chrome_options.add_argument("--no-sandbox") # CRÍTICO para ejecución en Docker/Root user
-    chrome_options.add_argument("--disable-dev-shm-usage") # Evita problemas de memoria
+    chrome_options.add_argument("--disable-dev-shm-usage") 
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--disable-notifications")
     
@@ -83,7 +83,7 @@ def obtener_horas(modelo, fecha_inicio, fecha_fin):
             driver.quit()
             return None, "Fallo de renderizado: Se forzó la visibilidad, pero los registros de actividad no aparecieron."
         except Exception as e:
-            driver.quit()
+            if driver: driver.quit()
             return None, f"Fallo al forzar la pestaña: Error al inyectar JavaScript o al buscar el contenedor. ({e})"
             
         # 2. Obtener TODOS los elementos que coincidan con el selector
@@ -145,6 +145,7 @@ def obtener_horas(modelo, fecha_inicio, fecha_fin):
     except WebDriverException as wde:
         if driver:
             driver.quit()
+        # El error de WebDriver (Unable to obtain driver) debería desaparecer
         return None, f"Error del WebDriver. Error: {str(wde)}"
 
     except Exception as e:
