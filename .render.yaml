@@ -1,18 +1,42 @@
-# .render.yaml
-# Define la versión de Python
-env: python
+# Dockerfile (Corregido para instalación APT estable)
 
-# Buildpacks: Este es el paso CRÍTICO
-# El segundo buildpack fuerza la instalación de Chrome/Chromium
-buildpacks:
-  - https://github.com/heroku/heroku-buildpack-python
-  - https://github.com/heroku/heroku-buildpack-google-chrome
-  
-# Configura el servicio web
-services:
-  - type: web
-    name: horascbhours
-    env: python
-    # Usamos el comando simple, ya que Chrome se instala con el buildpack
-    buildCommand: pip install -r requirements.txt
-    startCommand: python -m gunicorn app:app
+# Cambiar a una imagen base de Debian más completa y estable
+FROM python:3.10
+
+# Establece el directorio de trabajo
+WORKDIR /app
+
+# Instala Chromium y sus dependencias (Solución al exit code 10)
+# Se añaden dependencias comunes de navegadores como libnss3, etc.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    chromium \
+    chromium-driver \
+    libnss3 \
+    libgconf-2-4 \
+    fonts-liberation \
+    libappindicator3-1 \
+    xdg-utils \
+    wget \
+    gnupg \
+    --fix-missing \
+    && rm -rf /var/lib/apt/lists/*
+
+# Asegura permisos de ejecución
+RUN chmod +x /usr/bin/chromedriver
+RUN chmod +x /usr/bin/chromium
+
+# Configura las variables de entorno
+ENV CHROME_DRIVER_PATH /usr/bin/chromedriver
+ENV CHROMIUM_PATH /usr/bin/chromium
+
+# Copia los requisitos e instala las dependencias de Python
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copia el resto del código
+COPY . .
+
+# Expone el puerto y comando de inicio
+EXPOSE 8000
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]
