@@ -1,10 +1,13 @@
-FROM python:3.11-slim
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 
-WORKDIR /app
+chrome_options = Options()
+chrome_options.binary_location = "/usr/bin/chromium"
+chrome_options.add_argument("--headless")
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-dev-shm-usage")
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+service = Service("/usr/bin/chromedriver")
 
-COPY . .
-
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:10000"]
+driver = webdriver.Chrome(service=service, options=chrome_options)
